@@ -224,8 +224,13 @@ class MainWindow(QMainWindow):
         self.cancel_btn.clicked.connect(self._cancel)
         open_btn = QPushButton("Abrir pasta")
         open_btn.clicked.connect(self._open_folder)
+        self.clear_btn = QPushButton("Limpar lista")
+        self.clear_btn.setToolTip("Tira da lista as músicas do último download (os arquivos continuam na pasta)")
+        self.clear_btn.setEnabled(False)
+        self.clear_btn.clicked.connect(self._clear_queue)
         actions = QHBoxLayout()
         actions.addWidget(self.summary, 1)
+        actions.addWidget(self.clear_btn)
         actions.addWidget(open_btn)
         actions.addWidget(self.cancel_btn)
         actions.addWidget(self.start_btn)
@@ -627,7 +632,19 @@ class MainWindow(QMainWindow):
         self.start_btn.setEnabled(not running)
         self.cancel_btn.setEnabled(running)
         self.sources.setEnabled(not running)
+        self.clear_btn.setEnabled(not running and self.table.rowCount() > 0)
         self._update_remove_btn()
+
+    def _clear_queue(self):
+        if self.running:
+            return
+        self.table.setRowCount(0)
+        self.rows.clear()
+        self.done_count = 0
+        self.progress.reset()
+        self.summary.clear()
+        self.summary.setToolTip("")
+        self.clear_btn.setEnabled(False)
 
     def _cancel(self):
         self.cancel.set()
