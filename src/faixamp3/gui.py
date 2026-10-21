@@ -19,7 +19,7 @@ from . import __version__
 from .config import Settings, find_tool
 from .csv_source import load_csv
 from .pipeline import Options, Report, Status, Syncer, TrackEvent
-from . import desktop
+from . import desktop, updater
 from .embed import EMBED_LIMIT
 from .spotify import COPY_HELP, QuotaExceeded, LIKED, REDIRECT_URI, SpotifyClient, SpotifyError, parse_source
 
@@ -43,6 +43,7 @@ class Bridge(QObject):
     playlist_done = Signal(int, object)
     all_done = Signal()
     error = Signal(str)
+    update_ready = Signal(str, str, str)  # versão, caminho do app novo, novidades
 
 
 class SettingsDialog(QDialog):
@@ -138,10 +139,12 @@ class MainWindow(QMainWindow):
         self.pasted: dict[str, str] = {}
         self.pasted_for: dict[str, str] = {}  # ID da playlist -> links colados dela
         self._last_playlists: list[dict] = []
+        self.pending_update: tuple[str, str, str] | None = None
 
         self._build_ui()
         self._connect_signals()
         self._init_client()
+        self._check_update()
 
     # ---------- interface ----------
 
@@ -263,6 +266,7 @@ class MainWindow(QMainWindow):
         b.playlist_done.connect(self._on_playlist_done)
         b.all_done.connect(self._on_all_done)
         b.error.connect(self._on_error)
+        b.update_ready.connect(self._on_update_ready)
 
     # ---------- Spotify ----------
 
@@ -560,6 +564,50 @@ class MainWindow(QMainWindow):
         if SettingsDialog(self.settings, self).exec():
             self._init_client()
 
+    # ---------- atualização ----------
+
+    def _check_update(self):
+        if not updater.supported():
+            return
+
+        def work():
+            try:
+                update = updater.check()
+                if update:
+                    self.bridge.update_ready.emit(update.version, str(updater.download(update)), update.notes)
+            except Exception:  # noqa: BLE001 - sem internet ou GitHub fora: tenta na próxima vez
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_update_ready(self, version: str, path: str, notes: str):
+        self.pending_update = (version, path, notes)
+        if not self.running:
+            self._offer_update()
+
+    def _offer_update(self):
+        version, _, notes = self.pending_update
+        box = QMessageBox(self)
+        box.setWindowTitle("Atualização")
+        box.setTextFormat(Qt.MarkdownText)
+        box.setText(f"**A versão {version} do FaixaMP3 está pronta.**"
+                    + (f"\n\n**Novidades:**\n\n{notes}" if notes else ""))
+        box.setInformativeText("Reiniciar agora para usar? Se preferir, ela é instalada quando você fechar o app.")
+        now = box.addButton("Reiniciar agora", QMessageBox.AcceptRole)
+        box.addButton("Depois", QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is now:
+            self._install_update(relaunch=True)
+            self.close()
+
+    def _install_update(self, relaunch: bool):
+        if not self.pending_update:
+            return
+        try:
+            updater.apply(Path(self.pending_update[1]), relaunch)
+        except Exception:  # noqa: BLE001 - a versão atual continua funcionando
+            pass
+        self.pending_update = None
+
     # ---------- download ----------
 
     def _selected_sources(self) -> list[tuple[str, int, str]]:
@@ -700,6 +748,8 @@ class MainWindow(QMainWindow):
             self.summary.setToolTip("Veja o arquivo _faltando.txt dentro de cada pasta.")
         if self.notes:
             QMessageBox.information(self, "Playlists incompletas", "\n\n".join(self.notes))
+        if self.pending_update:
+            self._offer_update()
 
     def _on_error(self, message: str):
         if not self.running:
@@ -719,6 +769,7 @@ class MainWindow(QMainWindow):
                 event.ignore()
                 return
             self.cancel.set()
+        self._install_update(relaunch=False)
         event.accept()
 
 

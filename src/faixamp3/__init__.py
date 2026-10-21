@@ -1,6 +1,6 @@
 """FaixaMP3: baixa e organiza playlists do Spotify como MP3 pensados para o carro."""
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 
 def main() -> None:
