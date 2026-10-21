@@ -40,8 +40,27 @@ jobs:
         with:
           name: FaixaMP3-${{ runner.os }}
           path: FaixaMP3-${{ runner.os }}.zip
+      - name: Novidades da versão (CHANGELOG.md)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::Falta a seção '## $version' com as novidades no CHANGELOG.md"
+            exit 1
+          fi
+          cat >> notes.md <<'EOF'
+
+          ---
+          **Instalar:** baixe o zip do seu sistema, extraia e abra o FaixaMP3. Quem já tem o app a partir da 0.2.0 recebe esta versão sozinho.
+          - **Windows:** `FaixaMP3-Windows.zip` → `FaixaMP3\FaixaMP3.exe` (ffmpeg e deno já inclusos).
+          - **macOS:** `FaixaMP3-macOS.zip` → `FaixaMP3.app`. Requer `brew install ffmpeg deno`.
+          EOF
       - name: Publicar na Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          name: FaixaMP3 ${{ github.ref_name }}
+          body_path: notes.md
           files: FaixaMP3-${{ runner.os }}.zip
