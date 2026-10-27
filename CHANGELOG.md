@@ -3,6 +3,11 @@
 As novidades de cada versão do FaixaMP3. O texto de cada versão vira a descrição da release no GitHub e aparece
 no aviso de atualização dentro do app.
 
+## Próxima versão
+
+- Quando a internet cai ou o Spotify não responde, o aviso agora explica o que aconteceu em palavras simples
+  e mostra o nome da playlist, em vez de uma mensagem técnica com o link.
+
 ## 0.3.0
 
 - Playlists, álbuns e músicas adicionados por link agora aparecem na lista com o nome de verdade, em vez

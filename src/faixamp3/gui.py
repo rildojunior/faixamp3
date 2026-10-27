@@ -6,6 +6,8 @@ import sys
 import threading
 from pathlib import Path
 
+import requests
+
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
@@ -29,6 +31,26 @@ STATUS_COLORS = {
 }
 SOURCE_ROLE = Qt.UserRole
 ADDED_HEADER = "Adicionadas por você"
+
+
+def friendly_error(e: BaseException) -> str:
+    """Explica o erro em palavras simples; as mensagens do próprio app já vêm prontas."""
+    if isinstance(e, SpotifyError):
+        return str(e)
+    chain = []
+    while e is not None and e not in chain:
+        chain.append(e)
+        e = e.__cause__ or e.__context__
+    if any(isinstance(x, requests.Timeout) for x in chain):
+        return ("O Spotify demorou demais para responder. Pode ser a internet lenta ou instável. "
+                "Tente de novo daqui a pouco.")
+    if any(isinstance(x, (requests.ConnectionError, ConnectionError)) for x in chain):
+        return "A conexão com a internet caiu ou está instável. Confira se você está conectado e tente de novo."
+    http = next((x for x in chain if isinstance(x, requests.HTTPError)), None)
+    if http is not None and http.response is not None:
+        return (f"O Spotify não atendeu o pedido agora (erro {http.response.status_code}). "
+                "Tente de novo daqui a pouco.")
+    return f"Algo deu errado: {chain[0]}"
 
 
 class Bridge(QObject):
@@ -313,7 +335,7 @@ class MainWindow(QMainWindow):
             try:
                 fn()
             except Exception as e:  # noqa: BLE001
-                self.bridge.error.emit(str(e))
+                self.bridge.error.emit(friendly_error(e))
         threading.Thread(target=wrapper, daemon=True).start()
 
     def _login(self):
@@ -509,6 +531,7 @@ class MainWindow(QMainWindow):
             it = self.sources.item(i)
             if it.data(SOURCE_ROLE + 1) == "extra" and it.data(SOURCE_ROLE) == source:
                 it.setText(label)
+                it.setData(SOURCE_ROLE + 3, label)
 
     def _add_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Abrir playlist em CSV", str(Path.home()), "CSV (*.csv)")
@@ -720,7 +743,8 @@ class MainWindow(QMainWindow):
                         else:
                             raise SpotifyError("Conecte sua conta Spotify primeiro.")
                     except Exception as e:  # noqa: BLE001
-                        self.bridge.error.emit(f"{src}: {e}")
+                        self.bridge.error.emit(f"Não deu para baixar “{item_name or src}”.\n\n{friendly_error(e)}\n\n"
+                                              "Ao tentar de novo, as músicas que já baixaram são puladas.")
                         continue
                     seen: set[str] = set()
                     pl.tracks = [t for t in pl.tracks if not (t.id in seen or seen.add(t.id))]
