@@ -9,6 +9,9 @@ no aviso de atualização dentro do app.
   do código do link.
 - Em instalações novas, o app já vem com 7 downloads simultâneos, para baixar mais rápido. Quem já usa o app
   continua com o valor que escolheu.
+- Com o app aberto, ele procura atualizações a cada 2 horas, não só quando abre.
+- Nas Configurações: botão “Procurar atualizações”, para conferir na hora se há versão nova, e botão
+  “Novidades”, que abre a página da versão no GitHub com tudo o que mudou.
 
 ## 0.2.0
 

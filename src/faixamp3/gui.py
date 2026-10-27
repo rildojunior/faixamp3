@@ -6,7 +6,7 @@ import sys
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QInputDialog, QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
@@ -44,6 +44,7 @@ class Bridge(QObject):
     all_done = Signal()
     error = Signal(str)
     update_ready = Signal(str, str, str)  # versão, caminho do app novo, novidades
+    update_message = Signal(str)  # resposta da busca manual por atualizações
     link_named = Signal(str, str)  # link adicionado, nome dele no Spotify
 
 
@@ -97,6 +98,21 @@ class SettingsDialog(QDialog):
         self.use_desktop.setChecked(settings.use_desktop)
         form.addRow("", self.use_desktop)
 
+        version_row = QHBoxLayout()
+        version_row.addWidget(QLabel(f"Versão {__version__}"))
+        version_row.addStretch()
+        check_btn = QPushButton("Procurar atualizações")
+        news_btn = QPushButton("Novidades")
+        news_btn.setToolTip("Abre no navegador as novidades desta versão.")
+        if parent is not None:
+            check_btn.clicked.connect(lambda: parent._check_update(manual=True))
+        else:
+            check_btn.setEnabled(False)
+        news_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(updater.release_url())))
+        version_row.addWidget(check_btn)
+        version_row.addWidget(news_btn)
+        form.addRow("Atualizações:", version_row)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -141,11 +157,15 @@ class MainWindow(QMainWindow):
         self.pasted_for: dict[str, str] = {}  # ID da playlist -> links colados dela
         self._last_playlists: list[dict] = []
         self.pending_update: tuple[str, str, str] | None = None
+        self.checking_update = False
 
         self._build_ui()
         self._connect_signals()
         self._init_client()
         self._check_update()
+        self.update_timer = QTimer(self)
+        self.update_timer.timeout.connect(self._check_update)
+        self.update_timer.start(updater.CHECK_INTERVAL_MS)
 
     # ---------- interface ----------
 
@@ -268,6 +288,7 @@ class MainWindow(QMainWindow):
         b.all_done.connect(self._on_all_done)
         b.error.connect(self._on_error)
         b.update_ready.connect(self._on_update_ready)
+        b.update_message.connect(lambda text: QMessageBox.information(self, "Atualização", text))
         b.link_named.connect(self._on_link_named)
 
     # ---------- Spotify ----------
@@ -584,17 +605,36 @@ class MainWindow(QMainWindow):
 
     # ---------- atualização ----------
 
-    def _check_update(self):
-        if not updater.supported():
+    def _check_update(self, manual: bool = False):
+        """Procura versão nova. Sozinho (ao abrir e a cada 2 h) fica quieto; pelo botão, sempre responde."""
+        if self.pending_update:
+            if manual:
+                self._offer_update()
             return
+        if self.checking_update or not (manual or updater.supported()):
+            return
+        self.checking_update = True
 
         def work():
             try:
                 update = updater.check()
-                if update:
+                if not update:
+                    if manual:
+                        self.bridge.update_message.emit(f"Você já está na versão mais nova ({__version__}).")
+                elif updater.supported():
+                    if manual:
+                        self.bridge.status.emit(f"Baixando a versão {update.version}…")
                     self.bridge.update_ready.emit(update.version, str(updater.download(update)), update.notes)
+                elif manual:
+                    self.bridge.update_message.emit(
+                        f"A versão {update.version} está disponível, mas este app não consegue se atualizar "
+                        f"sozinho. Baixe em {update.page}")
             except Exception:  # noqa: BLE001 - sem internet ou GitHub fora: tenta na próxima vez
-                pass
+                if manual:
+                    self.bridge.update_message.emit("Não foi possível procurar atualizações. Confira a internet "
+                                                    "e tente de novo.")
+            finally:
+                self.checking_update = False
         threading.Thread(target=work, daemon=True).start()
 
     def _on_update_ready(self, version: str, path: str, notes: str):

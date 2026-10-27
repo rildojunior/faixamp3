@@ -26,6 +26,7 @@ from .config import APP_NAME
 
 REPO = "rildojunior/faixamp3"
 LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
+CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000  # com o app aberto, procura de novo a cada 2 horas
 UPDATE_DIR = Path(user_cache_dir(APP_NAME, appauthor=False)) / "update"
 
 
@@ -47,6 +48,11 @@ def _parse(version: str) -> tuple[int, ...]:
         digits = "".join(c for c in p if c.isdigit())
         parts.append(int(digits or 0))
     return tuple(parts)
+
+
+def release_url(version: str = __version__) -> str:
+    """Página da release no GitHub, com as novidades daquela versão."""
+    return f"https://github.com/{REPO}/releases/tag/v{version}"
 
 
 def frozen() -> bool:
