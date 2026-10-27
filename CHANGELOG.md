@@ -3,6 +3,11 @@
 As novidades de cada versão do FaixaMP3. O texto de cada versão vira a descrição da release no GitHub e aparece
 no aviso de atualização dentro do app.
 
+## Próxima versão
+
+- Playlists, álbuns e músicas adicionados por link agora aparecem na lista com o nome de verdade, em vez
+  do código do link.
+
 ## 0.2.0
 
 - O FaixaMP3 agora se atualiza sozinho: ao abrir, ele verifica se há uma versão nova, baixa em segundo plano e

@@ -82,3 +82,12 @@ def fetch_track(track_id: str, session: requests.Session | None = None) -> Track
         cover_url=cover,
         explicit=bool(e.get("isExplicit")),
     )
+
+
+def fetch_title(kind: str, ident: str, session: requests.Session | None = None) -> str:
+    """Nome de uma playlist, álbum ou faixa pelo oEmbed público (sem login)."""
+    http = session or requests
+    r = http.get("https://open.spotify.com/oembed", params={"url": f"https://open.spotify.com/{kind}/{ident}"},
+                 headers={"User-Agent": _UA}, timeout=15)
+    r.raise_for_status()
+    return (r.json().get("title") or "").strip()

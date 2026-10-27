@@ -20,7 +20,7 @@ from .config import Settings, find_tool
 from .csv_source import load_csv
 from .pipeline import Options, Report, Status, Syncer, TrackEvent
 from . import desktop, updater
-from .embed import EMBED_LIMIT
+from .embed import EMBED_LIMIT, fetch_title
 from .spotify import COPY_HELP, QuotaExceeded, LIKED, REDIRECT_URI, SpotifyClient, SpotifyError, parse_source
 
 STATUS_COLORS = {
@@ -44,6 +44,7 @@ class Bridge(QObject):
     all_done = Signal()
     error = Signal(str)
     update_ready = Signal(str, str, str)  # versão, caminho do app novo, novidades
+    link_named = Signal(str, str)  # link adicionado, nome dele no Spotify
 
 
 class SettingsDialog(QDialog):
@@ -267,6 +268,7 @@ class MainWindow(QMainWindow):
         b.all_done.connect(self._on_all_done)
         b.error.connect(self._on_error)
         b.update_ready.connect(self._on_update_ready)
+        b.link_named.connect(self._on_link_named)
 
     # ---------- Spotify ----------
 
@@ -470,6 +472,22 @@ class MainWindow(QMainWindow):
                                      checked=True)
         self.link_input.clear()
         self._show_added(item, "Link adicionado no topo da lista. Clique em Baixar selecionadas.")
+
+        def work():
+            # Troca o código do link pelo nome de verdade; se falhar, fica o código mesmo.
+            try:
+                title = fetch_title(kind, ident)
+            except Exception:  # noqa: BLE001
+                return
+            if title:
+                self.bridge.link_named.emit(text, f"🔗 {labels.get(kind, kind)}: {title}")
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_link_named(self, source: str, label: str):
+        for i in range(self.sources.count()):
+            it = self.sources.item(i)
+            if it.data(SOURCE_ROLE + 1) == "extra" and it.data(SOURCE_ROLE) == source:
+                it.setText(label)
 
     def _add_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Abrir playlist em CSV", str(Path.home()), "CSV (*.csv)")
