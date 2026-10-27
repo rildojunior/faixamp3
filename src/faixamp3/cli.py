@@ -192,7 +192,7 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("configurar", help="salva Client ID e preferências")
     p.add_argument("--client-id")
     p.add_argument("--pasta", help="pasta de saída padrão")
-    p.add_argument("--paralelo", type=int, help="downloads simultâneos (padrão 4)")
+    p.add_argument("--paralelo", type=int, help="downloads simultâneos (padrão 7)")
     p.add_argument("--bitrate", type=int, choices=[128, 192, 256, 320])
     p.add_argument("--normalizar", action=argparse.BooleanOptionalAction, default=None,
                    help="igualar volume entre faixas")

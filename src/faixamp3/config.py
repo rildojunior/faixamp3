@@ -24,7 +24,7 @@ PLAYLISTS_CACHE_FILE = CONFIG_DIR / "playlists_cache.json"
 class Settings:
     client_id: str = ""
     output_dir: str = str(Path(user_music_dir()) / "FaixaMP3")
-    workers: int = 4
+    workers: int = 7
     bitrate: int = 320
     normalize: bool = False
     ascii_names: bool = False

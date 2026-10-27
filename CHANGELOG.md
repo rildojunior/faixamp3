@@ -7,6 +7,8 @@ no aviso de atualização dentro do app.
 
 - Playlists, álbuns e músicas adicionados por link agora aparecem na lista com o nome de verdade, em vez
   do código do link.
+- Em instalações novas, o app já vem com 7 downloads simultâneos, para baixar mais rápido. Quem já usa o app
+  continua com o valor que escolheu.
 
 ## 0.2.0
 

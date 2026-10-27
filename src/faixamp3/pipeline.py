@@ -55,7 +55,7 @@ class TrackEvent:
 @dataclass
 class Options:
     output_dir: Path
-    workers: int = 4
+    workers: int = 7
     bitrate: int = 320
     normalize: bool = False
     ascii_names: bool = False
